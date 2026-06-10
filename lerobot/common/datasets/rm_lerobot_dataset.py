@@ -56,51 +56,67 @@ class FrameGapLeRobotDataset(LeRobotDataset):
         self.task_name = task_name
 
     def get_frame_indices(self, idx: int,
-                      n_obs_steps: int,
-                      frame_gap: int,
-                      ep_start: int = 0,
-                      ep_end: int | None = None) -> list[int]:
+                        n_obs_steps: int,
+                        frame_gap: int,
+                        ep_start: int = 0,
+                        ep_end: int | None = None) -> list[int]:
         """
-        Build a monotonic sequence of length n_obs_steps+1 ending at idx.
-        - Prefer fixed frame_gap when enough history exists.
-        - Otherwise adapt the effective gap to fit within [ep_start, idx].
+        Build a monotonic sequence of length n_obs_steps+1 with ep_start as the first
+        frame and idx as the last:
+            [ep_start] + [mid_frames] + [idx]
+
+        - Prefer fixed frame_gap for mid frames if they fit.
+        - Otherwise, evenly space the mid frames between ep_start and idx.
+        - Enforce non-decreasing monotonicity.
         - No padding; no extra inputs.
 
         Args:
             idx: last frame index (target frame).
             n_obs_steps: number of history steps (total length = n_obs_steps+1).
-            frame_gap: desired fixed stride between history frames when possible.
-            ep_start: episode start index (inclusive).
+            frame_gap: preferred stride for mid frames when possible.
+            ep_start: episode start index (inclusive and always included if n_obs_steps>=1).
             ep_end: episode end index (inclusive); if None, unbounded above.
 
         Returns:
             List of indices (non-decreasing), length = n_obs_steps + 1.
+
+        Notes:
+            - If n_obs_steps == 0, returns [idx] (cannot also include ep_start).
+            - For n_obs_steps >= 1, returns [ep_start, ..., idx].
         """
-        # Clamp idx to episode bounds
+        # Clamp idx to episode bounds (inclusive ep_end)
         if ep_end is not None:
             idx = min(idx, ep_end)
         idx = max(idx, ep_start)
 
-        gaps = n_obs_steps
-        if gaps == 0:
+        if n_obs_steps == 0:
             return [idx]
 
-        # Check if fixed stride fits entirely inside the episode
-        total_needed = frame_gap * gaps  # distance from earliest to idx
-        available = idx - ep_start
+        steps_between = n_obs_steps - 1  # number of mid frames
+        if steps_between <= 0:
+            return [ep_start, idx]
 
-        if available >= total_needed:
-            # Use fixed frame_gap
-            frames = [idx - frame_gap * (gaps - k) for k in range(gaps)] + [idx]
+        D = idx - ep_start  # total available distance
+
+        # Fixed-stride feasibility: earliest mid (plus ep_start as first) must stay >= ep_start.
+        # With mid frames anchored to the end, the earliest mid will be idx - frame_gap*steps_between.
+        # Also we need room for ep_start as the first element (which we always include).
+        if D >= frame_gap * n_obs_steps:
+            # Anchor mid frames to end: [..., idx - 2*gap, idx - 1*gap]
+            mid = [idx - frame_gap * j for j in range(steps_between, 0, -1)]
         else:
-            # Not enough history: adapt stride by evenly spacing from ep_start to idx
-            # Use integer rounding and enforce monotonicity.
-            frames = [ep_start + round(available * k / gaps) for k in range(gaps)] + [idx]
-            for i in range(1, len(frames)):
-                if frames[i] < frames[i - 1]:
-                    frames[i] = frames[i - 1]
+            # Evenly space mid frames between ep_start and idx
+            mid = [ep_start + round(D * k / n_obs_steps) for k in range(1, n_obs_steps)]
+
+        frames = [ep_start] + mid + [idx]
+
+        # Enforce non-decreasing (guard against rounding)
+        for i in range(1, len(frames)):
+            if frames[i] < frames[i - 1]:
+                frames[i] = frames[i - 1]
 
         return frames
+
 
 
     def __getitem__(self, idx: int) -> dict:
