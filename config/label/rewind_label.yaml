@@ -1,0 +1,38 @@
+# @package _global_
+_target_: workspace.label.rewind_label_ws.ReWiNDLabelWorkspace
+
+cfg:
+  general:
+    project_name: "reward_rewind_label"
+    task_name: "fold_tshirt"
+    state_norm_path: PATH_TO_YOUR/NORM_STATS  # task-specific norm stats file, example at "assets/fold_tshirt.json"
+    camera_names: [top_camera-images-rgb]
+    seed: 42
+    device: "cuda"
+
+  encoders:
+    # CLIP (matches workspace/rewind_ws.py)
+    vision_ckpt: "openai/clip-vit-base-patch32"
+    text_ckpt: "openai/clip-vit-base-patch32"
+
+  model:
+    d_model: 768
+    n_layers: 8
+    n_heads: 12
+    dropout: 0.1
+    n_obs_steps: 8
+    max_rewind_steps: 4
+    frame_gap: 30
+    state_dim: 14
+    no_state: False
+    use_future_step: False  # if the reward head was trained on steps-to-go, set True
+
+  eval:
+    eval_frame_gap: 30
+
+    ckpt_path: "PATH/TO/YOUR/CHECKPOINT.pt"  # path to the trained reward model .pt file
+
+    # Reward labeling (mode=label / label_mp / clear): writes reward.npy + progress.npy per episode dir
+    label_data_dir: "PATH/TO/YOUR/LABEL/DATA"  # folder of episode_* dirs to label (each needs timestamp.npy)
+    lang_str: "fold the tshirt"                 # task instruction fed to the model while labeling
+    clip_reward_nonneg: True                    # clamp per-frame reward to be non-negative

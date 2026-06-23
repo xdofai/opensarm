@@ -252,3 +252,72 @@ def get_frame_data_fast(path,
         sequence_data['image_frames'][camera_name] = tensor
 
     return sequence_data
+
+
+def dense_to_sparse_transfer(x: torch.Tensor, 
+                             lang_strs: list[str],
+                             ) -> torch.Tensor:
+    """
+    Map values in x (shape: (B, T)) via linear interpolation on open intervals:
+      (0, 0.5)  -> (0, 1)
+      (0.5, 1)  -> (1, 2)
+      (1, 2)    -> (2, 3)
+      (2, 7)    -> (3, 4)
+      (7, 8)    -> (4, 5)
+    All intervals are OPEN; exact endpoints are invalid and will raise.
+
+    Returns a tensor of same shape/dtype/device as x.
+    """
+    if x.dim() != 2:
+        raise ValueError(f"Expected a 2D tensor (B, T), got shape {tuple(x.shape)}")
+
+    assert len(lang_strs) == x.shape[1], "lang_strs length must match sequence length T"
+    sparse_lang_strs = lang_strs.copy()
+    
+    annotation_list = [
+      "grab crumpled tshirt from pile", 
+      "move the tshirt to center",
+      "Flatten the tshirt out",
+      "Fold the tshirt",
+      "Neatly place the folded tshirt to the corner",
+    ]
+    
+    dtype = x.dtype
+    device = x.device
+    y = torch.empty_like(x)
+
+    def lin(v, a, b, c, d):
+        # linear map from [a,b] to [c,d] (used on open intervals)
+        return (c + (v - a) * (d - c) / (b - a)).to(dtype)
+
+    m1 = (x >= 0)   & (x < 0.5)  # -> (0,1)
+    m2 = (x >= 0.5) & (x < 1)    # -> (1,2)
+    m3 = (x >= 1)   & (x < 2)    # -> (2,3)
+    m4 = (x >= 2)   & (x < 7)    # -> (3,4)
+    m5 = (x >= 7)   & (x <= 8)    # -> (4,5)
+    
+    if m1.any(): y[m1] = lin(x[m1], 0.0, 0.5, 0.0, 1.0)
+    if m2.any(): y[m2] = lin(x[m2], 0.5, 1.0, 1.0, 2.0)
+    if m3.any(): y[m3] = lin(x[m3], 1.0, 2.0, 2.0, 3.0)
+    if m4.any(): y[m4] = lin(x[m4], 2.0, 7.0, 3.0, 4.0)
+    if m5.any(): y[m5] = lin(x[m5], 7.0, 8.0, 4.0, 5.0)
+    
+    interval_masks = [m1, m2, m3, m4, m5]
+    for k, mk in enumerate(interval_masks):
+        cols = mk.any(dim=0)                              # (T,)
+        idxs = torch.nonzero(cols, as_tuple=True)[0].tolist()
+        for t in idxs:
+            sparse_lang_strs[t] = annotation_list[k]
+    
+    
+    valid = m1 | m2 | m3 | m4 | m5
+    if (~valid).any():
+        bad_vals = x[~valid]
+        # Show a small sample to keep the error readable
+        sample = bad_vals.flatten()[:10].tolist()
+        raise ValueError(
+            f"Values outside allowed open intervals (or on boundaries). "
+            f"Invalid count: {bad_vals.numel()}, sample: {sample}"
+        )
+
+    return y.to(device=device, dtype=dtype), sparse_lang_strs
