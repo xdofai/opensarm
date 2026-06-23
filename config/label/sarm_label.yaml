@@ -1,0 +1,112 @@
+# @package _global_
+_target_: workspace.label.sarm_label_ws.SARMLabelWorkspace
+
+cfg:
+  general:
+    # dataset specific
+    project_name: "reward_sarm"
+    task_name: "fold_tshirt"
+    repo_id_sparse: PATH_TO_YOUR/SPARSE_LEROBOT_DATASET"  # path to the huggingface lerobot dataset: USR_NAME/DATASET
+    repo_id_dense: PATH_TO_YOUR/DENSE_LEROBOT_DATASET"    # path to the huggingface lerobot dataset: USR_NAME/DATASET
+    state_norm_path: PATH_TO_YOUR/NORM_STATS # path to the task specific norm stats file, example can be found at "assets/fold_tshirt.json"
+    camera_names:  [top_camera-images-rgb]
+    seed: 42
+    device: "cuda" 
+
+  dataloader:
+    batch_size: 32
+    num_workers: 6
+    shuffle: True
+    pin_memory: True
+    persistent_workers: True
+
+  val_dataloader:
+    batch_size: 16
+    num_workers: 6
+    shuffle: False
+    pin_memory: True
+    persistent_workers: True
+
+  rollout_dataloader:
+    batch_size: 1 
+    num_workers: 6
+    shuffle: True
+    pin_memory: True
+    persistent_workers: True
+
+  encoders:               
+    # CLIP
+    vision_ckpt: "openai/clip-vit-base-patch32"
+    text_ckpt: "openai/clip-vit-base-patch32"
+
+  model:
+    d_model: 768          
+    n_layers: 8
+    n_heads: 12
+    dropout: 0.1
+    n_obs_steps: 8
+    max_rewind_steps: 4
+    frame_gap: 30
+    state_dim: 14
+    no_state: False
+    resume_training: False
+    model_path: ""
+
+    # Sparse anno
+    num_classes_sparse: 6 # num_classes = num_stage
+    sparse_annotation_list: [
+            "grab crumpled tshirt from pile", 
+            "move the tshirt to center",
+            "Flatten the tshirt out",
+            "Fold the tshirt",
+            "Neatly place the folded tshirt to the corner",
+    ]
+
+    # Dense anno
+    num_classes_dense: 9 # num_classes = num_stage
+    dense_annotation_list: [
+        "grab crumpled tshirt and move to center",
+        "flatten out the tshirt",
+        "grab near side and fold one-third",
+        "grab far side and fold into rectangle",
+        "rotate the tshirt 90 degrees",
+        "grab bottom and fold one-third",
+        "grab two-third side and fold into square",
+        "put folded tshirt into corner"
+    ]
+
+  optim:
+    lr: 5e-5
+    weight_decay: 5.0e-3
+    betas: [0.9, 0.95]
+    eps: 1.0e-8
+    warmup_steps: 1000
+    total_steps: 100_000
+
+  train:
+    num_epochs: 2
+    grad_clip: 1.0
+    log_every: 50          # steps
+    eval_every: 1          # epochs
+    save_every: 5_000      # steps
+    val_portion: 0.1       # fraction of episodes for validation
+
+  eval:
+    eval_frame_gap: 10
+
+    ckpt_path: "PATH/TO/YOUR/CHECKPOINT"    # path to the folder containing reward_best.pt
+    stage_model: "NAME_OF_STAGE_MODEL"      # name of the stage model, e.g. stage_best.pt
+    subtask_model: "NAME_OF_SUBTASK_MODEL"  # name of the subtask model, e.g. subtask_best.pt
+
+    # Evaluation type
+    model_type: "dense"       # "sparse" or "dense"
+    dataset_type: "sparse"    # "sparse" or "dense"
+    run_times: 60             # number of episodes to evaluate in dataset
+
+    # Raw data evaluation
+    raw_data_dir: "PATH/TO/YOUR/RAW/DATA"  # path to the folder containing raw robot trajectories for evaluation
+    raw_data_run_times: 60
+
+    # Reward labeling (mode=label / label_mp / clear): writes reward.npy + progress.npy per episode dir
+    label_data_dir: "PATH/TO/YOUR/LABEL/DATA"  # folder of episode_* dirs to label (each needs timestamp.npy)
+    lang_str: "fold the tshirt"                 # task instruction fed to the model while labeling

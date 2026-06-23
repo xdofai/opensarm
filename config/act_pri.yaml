@@ -1,0 +1,143 @@
+_target_: workspace.act_pri_ws.ActPriWorkspace
+
+cfg:
+  general:
+    # dataset specific
+    project_name: "act_pri"
+
+    task_name: "21_act"
+    repo_id: YOUR_HF_REPO_ID                  # HuggingFace dataset repo id (act-primitive labels)
+
+    state_norm_path: /PATH/TO/STATE_NORM.JSON  # state normalization stats computed from the dataset
+    camera_names:  [top_camera-images-rgb, left_camera-images-rgb, right_camera-images-rgb]
+    seed: 42
+    device: "cuda"
+
+  dataloader:
+    batch_size: 64
+    num_workers: 12
+    prefetch_factor: 1
+    shuffle: True
+    pin_memory: True
+    persistent_workers: False
+
+  val_dataloader:
+    batch_size: 32
+    num_workers: 4
+    shuffle: False
+    pin_memory: True
+    persistent_workers: False
+
+  encoders:
+    vision_ckpt: "google/siglip2-base-patch16-224"  # SigLIP
+
+  model:
+    use_future_step: False
+    d_model: 512          
+    n_layers: 4
+    n_heads: 8
+    dropout: 0.1
+    n_obs_steps: 6
+    max_rewind_steps: 0
+    frame_gap: 30
+    state_dim: 14
+    max_pred_ratio: 0.95
+    alpha_class_loss: 0.0
+    pre_decode_video_frames: False
+    no_state: False
+    resume_training: False
+    model_path: ""
+    no_pertube: True
+
+    ## yam_act_pri_reward_0124
+    num_tasks: 22
+    task_list: [
+                "clamp",
+                "erase",
+                "fold_flatten", 
+                "hang",
+                "insert",
+                "install",
+                "pass",
+                "pick_grab",
+                "place",
+                "pour_dump",
+                "press",
+                "pull",
+                "roll",
+                "rotate_turn",
+                "scoop",
+                "screw_unscrew",
+                "sweep",
+                "tie",
+                "untie",
+                "wrap",
+                "zip_unzip",
+                "dummy"
+                ]
+
+
+    num_class: 8
+    class_list: [
+                "pick_grab or scoop or pull",
+                "place or pour_dump",
+                "erase or zip_unzip or sweep or pass",
+                "install or insert or assembly or load",
+                "fold_flatten or hang",
+                "rotate_turn or screw_unscrew or tie or wrap or untie or roll",
+                "press or clamp",
+                "dummy"
+                ]
+    
+   
+
+  optim:
+    reward_lr: 5e-5
+    action_lr: 2.5e-5
+    weight_decay: 0.01
+    betas: [0.9, 0.95]
+    eps: 1.0e-8
+    warmup_steps: 1000
+    total_steps: 80_000
+
+  train:
+    num_epochs: 1        
+    num_steps: 16_000    # which one comes first
+    grad_clip: 1.0
+    log_every: 50        # steps
+    eval_every: 1        # epochs
+    save_every: 5_000    # steps
+    val_portion: 0.1     # fraction of episodes for validation
+
+  eval:
+    run_times: 120  # number of episodes to evaluate in video
+    split_task: True
+    raw_data_run_times: 1
+    eval_frame_gap: 10
+
+    ckpt_path: /PATH/TO/ACT_PRI_CHECKPOINT.PT  # trained act_pri checkpoint to evaluate
+
+    eval_whole_task: False
+    whole_task:
+      repo_id: YOUR_HF_REPO_ID  # HuggingFace dataset repo id for whole-task eval
+      task_inst_list: [
+        "pick and place plates into bin",
+        "clean whiteboard WITH whiteboard eraser",
+        "folding shorts",
+        "folding the t-shirt",
+        "pick and place plates into dish rack",
+        "sweep paper scraps WITH broom",
+        "coil and wrap headphones",
+        "pull plug off the socket",
+        "put away an umbrella",
+        "set dinner table"
+      ]
+
+
+    raw_data_dir: /PATH/TO/RAW_DATA_DIR  # directory of raw episode_* trajectories
+
+    
+    
+
+
+            

@@ -1,0 +1,72 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.venv/
+venv.bak/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+wheelhouse/
+*.egg
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Type checkers / caches
+.mypy_cache/
+.pyre/
+
+# IDEs / editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and runtime files
+*.log
+*.pid
+*.sock
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+.secrets/
+secrets/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Database
+*.sqlite3
+*.db
+
+# Docker
+docker-compose.override.yml
+
+# Node (if present)
+node_modules/
+
+# Misc build artifacts
+*.so
+*.dSYM
+*.pyc
+
+data/

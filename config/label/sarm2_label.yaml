@@ -1,0 +1,166 @@
+# @package _global_
+_target_: workspace.label.sarm2_label_ws.SARM2LabelWorkspace
+
+cfg:
+  general:
+    # dataset specific
+    project_name: "sarm2"
+
+    task_name: "ten_tasks_5hour"
+    repo_id: YOUR_HF_REPO_ID                  # HuggingFace dataset repo id (whole-task reward + act-primitive)
+    state_norm_path: /PATH/TO/STATE_NORM.JSON  # state normalization stats computed from the dataset
+
+    camera_names:  [top_camera-images-rgb, left_camera-images-rgb, right_camera-images-rgb]
+    seed: 42
+    device: "cuda"
+
+  dataloader:
+    batch_size: 64
+    num_workers: 8
+    prefetch_factor: 1
+    shuffle: True
+    pin_memory: True
+    persistent_workers: False
+
+  val_dataloader:
+    batch_size: 32
+    num_workers: 4
+    shuffle: False
+    pin_memory: True
+    persistent_workers: False
+
+  encoders:
+    vision_ckpt: "google/siglip2-base-patch16-224"  # SigLIP
+
+
+  model:
+    act_pri:
+      n_layers: 4
+      d_model: 512          
+      n_heads: 8
+      dropout: 0.1
+      state_dim: 14
+    use_future_step: True
+    d_model: 512          
+    n_layers: 6
+    n_heads: 8
+    dropout: 0.1
+    n_obs_steps: 6
+    max_rewind_steps: 3
+    frame_gap: 30
+    state_dim: 14
+    pre_decode_video_frames: False
+    no_state: False
+    resume_training: False
+    model_path: ""
+    act_pri_model_path: /PATH/TO/PRETRAINED_ACT_PRI.PT  # pretrained act_pri checkpoint (loaded for train/finetune)
+    finetune_act_pri: True  # if True, act_pri_model is trained jointly with reward_model
+    act_pri_loss_weight: 0.25  # weight for action prediction loss in the total loss (reward + action prediction)
+    no_pertube: True
+    moe:
+      num_experts: 10
+      top_k: 2
+      gate_units: [256]
+      gate_dropout: 0.1    
+      gate_act: "gelu"    
+      expert_units: [256, 256, 256]
+      expert_dropout: 0.1 
+      expert_act: "gelu"
+      # hyperparam for auxiliary loss terms
+      lambda_balance: 2.5   
+      lambda_entropy: 0.5
+      lambda_importance: 0.1
+      # hyperparam for balancing regression and auxiliary losses
+      alpha_auxiliary: 0.2
+
+    ## yam_act_pri_reward_0124
+    num_tasks: 22
+    task_list: [
+      "clamp",
+      "erase",
+      "fold_flatten",
+      "hang",
+      "insert",
+      "install",
+      "pass",
+      "pick_grab",
+      "place",
+      "pour_dump",
+      "press",
+      "pull",
+      "roll",
+      "rotate_turn",
+      "scoop",
+      "screw_unscrew",
+      "sweep",
+      "tie",
+      "untie",
+      "wrap",
+      "zip_unzip",
+      "dummy"
+    ]
+    
+    
+    task_inst_list: [
+      "pick and place plates into bin",
+      "clean whiteboard WITH whiteboard eraser",
+      "folding shorts",
+      "folding the t-shirt",
+      "pick and place plates into dish rack",
+      "sweep paper scraps WITH broom",
+      "coil and wrap headphones",
+      "pull plug off the socket",
+      "put away an umbrella",
+      "set dinner table"
+    ]
+
+    num_class: 8
+    class_list: [
+      "pick_grab or scoop or pull",
+      "place or pour_dump",
+      "erase or zip_unzip or sweep or pass",
+      "install or insert or assembly or load",
+      "fold_flatten or hang",
+      "rotate_turn or screw_unscrew or tie or wrap or untie or roll",
+      "press or clamp",
+      "dummy"
+    ]
+    
+    
+   
+
+  optim:
+    lr: 5e-5
+    weight_decay: 5.0e-3
+    betas: [0.9, 0.95]
+    eps: 1.0e-8
+    warmup_steps: 1000
+    total_steps: 30_000
+
+  train:
+    num_epochs: 1 # 80k steps/1 epoch
+    num_steps: 30_000 
+    grad_clip: 1.0
+    log_every: 50        # steps
+    eval_every: 1        # epochs
+    save_every: 5_000    # steps
+    val_portion: 0.1     # fraction of episodes for validation
+
+  eval:
+    run_times: 100  # number of episodes to evaluate in video
+    split_task: True
+    raw_data_run_times: 36
+    eval_whole_task_from_act_pri: False
+    eval_frame_gap: 30
+
+    ckpt_path_act_pri: /PATH/TO/ACT_PRI_CHECKPOINT.PT  # trained act_pri checkpoint to evaluate
+    ckpt_path_reward: /PATH/TO/REWARD_CHECKPOINT.PT    # trained reward-model checkpoint to evaluate
+
+    raw_data_dir: /PATH/TO/RAW_DATA_DIR  # directory of raw episode_* trajectories
+
+    # Reward labeling (mode=label / label_mp / clear): writes reward.npy + progress.npy per episode dir
+    label_data_dir: /PATH/TO/LABEL_DATA_DIR  # folder of episode_* dirs to label (each needs timestamp.npy)
+    lang_str: "folding the t-shirt"          # task instruction fed to the model while labeling
+    clip_reward_nonneg: True                 # clamp per-frame reward to be non-negative
+
+    

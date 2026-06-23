@@ -9,6 +9,7 @@ class RegressionConfidenceSmoother:
         eps: float = 1e-6,
         low_conf_th: float = 0.9,
         value_range: Optional[Tuple[float, float]] = None,  # e.g., (min_val, max_val)
+        monotonic_mode: str = "none",  # "none", "increase", "decrease"
     ):
         """
         value: float regression output
@@ -19,6 +20,9 @@ class RegressionConfidenceSmoother:
         self.eps = eps
         self.low_conf_th = low_conf_th
         self.value_range = value_range
+        assert monotonic_mode in ("none", "increase", "decrease"), \
+            f"monotonic_mode must be 'none', 'increase', or 'decrease', got '{monotonic_mode}'"
+        self.monotonic_mode = monotonic_mode
 
         self.hist_vals = deque(maxlen=window_size)
         self.hist_confs = deque(maxlen=window_size)
@@ -66,6 +70,12 @@ class RegressionConfidenceSmoother:
         weights = [max(self.eps, c) ** self.beta for c in self.hist_confs]
         wsum = sum(weights) + self.eps
         smoothed_item = sum(w * v for w, v in zip(weights, self.hist_vals)) / wsum
+
+        if self.last_smoothed is not None:
+            if self.monotonic_mode == "increase":
+                smoothed_item = max(smoothed_item, self.last_smoothed)
+            elif self.monotonic_mode == "decrease":
+                smoothed_item = min(smoothed_item, self.last_smoothed)
 
         self.last_smoothed = smoothed_item
         return smoothed_item

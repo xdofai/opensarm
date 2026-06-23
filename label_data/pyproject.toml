@@ -1,0 +1,15 @@
+[project]
+name = "rollout-label"
+version = "0.1.0"
+description = "Trajectory rollout labeling tools"
+requires-python = ">=3.10"
+dependencies = [
+    "flask>=3.0",
+    "numpy>=1.24",
+    "matplotlib>=3.7",
+    "opencv-python>=4.8",
+    "gdown>=5.0",
+]
+
+[tool.uv]
+dev-dependencies = []
